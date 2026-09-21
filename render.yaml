@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: telegram-bot-0x00chanel
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    healthCheckPath: /
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ADMIN_USER_ID
+        sync: false
+      - key: ADMIN_USER_IDS
+        sync: false
+      - key: SOURCE_CHANNEL
+        sync: false
+      - key: TARGET_CHANNEL
+        sync: false
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: TELETHON_SESSION_STRING
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.6-flash
+      - key: DB_PATH
+        value: /var/data/bot.sqlite3
+      - key: LOG_PATH
+        value: /var/data/bot.log
+      - key: TELETHON_SESSION
+        value: /var/data/userbot
+      - key: WEB_HOST
+        value: 0.0.0.0
+      - key: TIMEZONE
+        value: Europe/Moscow
+      - key: TEST_MODE
+        value: "0"
+    disk:
+      name: bot-data
+      mountPath: /var/data
+      sizeGB: 1
