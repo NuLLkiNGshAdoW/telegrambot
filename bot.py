@@ -56,6 +56,11 @@ ADMIN_USER_IDS = {
     if value.strip()
 }
 TARGET_CHANNEL = required("TARGET_CHANNEL")
+TARGET_CHANNELS = [
+    value.strip()
+    for value in os.getenv("TARGET_CHANNELS", TARGET_CHANNEL).split(",")
+    if value.strip()
+]
 SOURCE_CHANNEL = required("SOURCE_CHANNEL")
 TELEGRAM_API_ID = int(required("TELEGRAM_API_ID"))
 TELEGRAM_API_HASH = required("TELEGRAM_API_HASH")
@@ -383,7 +388,7 @@ def save_draft(
             """INSERT INTO drafts(
                 text, media_type, media_id, original_text, source_id, source_message_id, target_channel
             ) VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (text, media_type, media_id, original_text, source_id, source_message_id, target_channel or TARGET_CHANNEL),
+            (text, media_type, media_id, original_text, source_id, source_message_id, target_channel),
         )
         db.commit()
         return int(cursor.lastrowid)
@@ -793,12 +798,10 @@ async def send_text_chunks(chat_id: str, text: str, parse_mode=ParseMode.HTML) -
         await bot.send_message(chat_id, text[offset : offset + 4000], parse_mode=parse_mode)
 
 
-async def publish_draft(draft) -> None:
+async def _publish_draft_to_target(draft, target: str) -> None:
     media_type = draft["media_type"]
     media_id = draft["media_id"]
     text = draft["text"]
-    target = str(ADMIN_USER_ID) if TEST_MODE else (draft["target_channel"] or TARGET_CHANNEL)
-
     # Telegram ограничивает подпись к фото/видео 1024 символами.
     if media_type and len(text) > 1024:
         if media_type == "album":
@@ -864,6 +867,21 @@ async def publish_draft(draft) -> None:
             await publish_bundle(media_id, plain_text, target)
         else:
             await send_text_chunks(target, plain_text, parse_mode=None)
+
+
+async def publish_draft(draft) -> None:
+    """Publish a draft to every configured target channel."""
+    if TEST_MODE:
+        targets = [str(ADMIN_USER_ID)]
+    elif draft["target_channel"]:
+        # /target deliberately overrides the global list for one draft.
+        targets = [draft["target_channel"]]
+    else:
+        targets = TARGET_CHANNELS
+    if not targets:
+        raise RuntimeError("Не задан ни один TARGET_CHANNEL")
+    for target in targets:
+        await _publish_draft_to_target(draft, target)
 
 
 async def publish_album(media_id: str, caption: str, target: str = TARGET_CHANNEL) -> None:
